@@ -7,23 +7,24 @@ Cd(__DIR__);
 
 CDC *tex_brick = GRRead("Sprites/Brick.GR.Z"); 
 CDC *tex_tile = GRRead("Sprites/Tile.GR.Z");
+CDC *tex_pow = GRRead("Sprites/PowBlock.GR.Z");
 
 I64 map[MAP_HEIGHT][MAP_WIDTH] = {
-  {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,2,2,2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2,2,2,2,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1},
+  {1,2,2,0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,2,2,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,1},
+  {1,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
   {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
@@ -42,8 +43,14 @@ U0 InitMapColliders()
       if(tile == 1)
       {
 	NewCollider(x * 24, y * 24, 24, 24, 2);
+      }else if(tile == 2)
+      {
+	NewCollider(x * 24, y * 24, 24, 24 , 3);
+      }else if(tile == 3)
+      {
+        NewCollider(x * 24, y * 24, 24 ,24 , 4);
       }
-    }
+    }  
   }
 }
 
@@ -58,7 +65,14 @@ U0 DrawMap(CDC *dc)
       if(tile == 1)
       {
 	GrBlot(dc, x * 24, y * 24, tex_brick);
+      }else if(tile == 2)
+      {
+	GrBlot(dc, x * 24, y * 24, tex_tile);
+      }else if(tile == 3)
+      {
+	GrBlot(dc, x * 24, y * 24, tex_pow);
       }
+
     }
   }
 }
@@ -95,7 +109,7 @@ U0 Init()
   keys.startB = FALSE;
   QueInit(&collider_que);
 
-  plr.myCollider = NewCollider(50, 20, 24, 24, 1);
+  plr.myCollider = NewCollider(48, 48, 12, 24, 1);
   InitMapColliders;    
 
 }
@@ -105,65 +119,79 @@ Bool g_Running = TRUE;
 U0 MovePlayer()
 {
 
-  plr.velocity.x = 0;
+  F64 dx = 0;
 
-  if(!plr.grounded)
+  if(keys.right) dx += 5;
+  if(keys.left) dx -= 5;
+
+  plr.myCollider->position.x += dx;
+
+  Collider *temp = collider_que.next;
+  while(temp != &collider_que)
   {
-    plr.velocity.y += GRAVITY;
+    Collider *next = temp->next;
+    if(temp != plr.myCollider && isColliding(plr.myCollider, temp))
+    {
+      if(temp->type == 2 || temp->type == 3)
+      {
+        if(dx > 0)
+        {
+          plr.myCollider->position.x = temp->position.x - 1 - plr.myCollider->size.x;
+        }
+        else
+        {
+          plr.myCollider->position.x = temp->position.x + 1 + temp->size.x;
+        }
+      }
+    }
+    temp = next;
   }
-  
+
+  plr.velocity.y += GRAVITY;
+
+  F64 dy = plr.velocity.y;
+  plr.myCollider->position.y += dy;
+
+  if(plr.velocity.y > 10)
+  {
+    plr.velocity.y = 10;
+  }
+
+  temp = collider_que.next;
+  while(temp != &collider_que)
+  {
+    next = temp->next;
+    if(temp != plr.myCollider && isColliding(plr.myCollider, temp))
+    {
+      if(temp->type == 2 || temp->type == 3)
+      {
+        plr.myCollider->position.y -= dy;
+        if(plr.velocity.y > 0)
+        {
+  	  plr.grounded = TRUE;
+        }
+        plr.velocity.y = 0;
+      }
+    }
+    temp = next;
+  }
+
+  if(plr.velocity.y != 0)
+  {
+    plr.grounded = FALSE;
+  }
+
   if(keys.up && plr.grounded)
   {
-    plr.velocity.y = -15; 
+    plr.velocity.y = -16;
     plr.grounded = FALSE;
   }
-
-  if(plr.velocity.y > 8)
-  {
-    plr.velocity.y = 8;
-  }
-
-
-  if(keys.down)
-  {
-    plr.myCollider->position.y++;
-  }
-
-  // X Axis
-  if(keys.left)
-  {
-    plr.velocity.x = -4;
-  }
-  if(keys.right)
-  {
-    plr.velocity.x = 4;
-  }
-
-  plr.myCollider->position.x += plr.velocity.x;
-
-  if(CheckMapCollision(plr.myCollider))
-  {
-    plr.myCollider->position.x -= plr.velocity.x;
-  }
-
-  // Y Axis
-  plr.myCollider->position.y += plr.velocity.y;
- 
-  if(CheckMapCollision(plr.myCollider))
-  {
-    plr.myCollider->position.y -= plr.velocity.y;
-    plr.grounded = TRUE;
-    plr.velocity.y = 0;
-  }else
-  {
-    plr.grounded = FALSE;
-  }
-
-
+  
 }
 
 U0 DrawIt(CTask *task, CDC *dc)
 {
+  DCFill(dc, BLACK);
   MovePlayer;
   DrawColliders(dc);
   DrawMap(dc);

@@ -24,7 +24,7 @@ Collider NewCollider(F64 x1, F64 y1, F64 x2, F64 y2, I64 type)
   return new;
 }
 
-Bool CheckCollision(Collider *a, Collider *b)
+Bool isColliding(Collider *a, Collider *b)
 {
   if(a->position.x > b->position.x + b->size.x){
     return FALSE;
@@ -42,7 +42,7 @@ Bool CheckCollision(Collider *a, Collider *b)
   return TRUE;
 }
 
-Bool CheckMapCollision(Collider *plrCollider)
+Bool CheckMapCollision(Collider *plrCollider)
 {
   Collider *temp = collider_que.next;
   while(temp != &collider_que)
@@ -50,7 +50,7 @@ Bool CheckMapCollision(Collider *plrCollider)
     Collider *next = temp->next;
     if(temp->type == 2)
     {
-      if(CheckCollision(plrCollider, temp))
+      if(isColliding(plrCollider, temp))
       {
 	return TRUE;
       } 
