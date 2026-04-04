@@ -1,7 +1,9 @@
-Cd(__DIR__);
+ Cd(__DIR__);
 #include "Collisions.HC";
 #define MAP_WIDTH 27
 #define MAP_HEIGHT 20
+#define ACCEL	 1.1
+#define FRICTION 1.2
 #define GRAVITY 1
 
 
@@ -81,7 +83,7 @@ U0 DrawMap(CDC *dc)
 
 class Keys
 {
-  Bool up,down,left,right,actionA,startB;
+  Bool up,down,left,right,actionA,actionB,startB;
 };
 
 class Player
@@ -106,6 +108,7 @@ U0 Init()
   keys.left = FALSE;
   keys.right = FALSE;
   keys.actionA = FALSE;
+  keys.actionB = FALSE;
   keys.startB = FALSE;
   QueInit(&collider_que);
 
@@ -119,12 +122,24 @@ Bool g_Running = TRUE;
 U0 MovePlayer()
 {
 
-  F64 dx = 0;
 
-  if(keys.right) dx += 5;
-  if(keys.left) dx -= 5;
+  if(keys.right) plr.velocity.x += ACCEL;
+  if(keys.left) plr.velocity.x -= ACCEL;
 
-  plr.myCollider->position.x += dx;
+  plr.velocity.x /= FRICTION;
+
+  if(Abs(plr.velocity.x) >= 5)
+  {
+    if(plr.velocity.x > 0)
+    {
+      plr.velocity.x = 5;
+    }else
+    {
+      plr.velocity.x = -5;
+    }
+  }
+
+  plr.myCollider->position.x += plr.velocity.x;
 
   Collider *temp = collider_que.next;
   while(temp != &collider_que)
@@ -134,7 +149,7 @@ U0 MovePlayer()
     {
       if(temp->type == 2 || temp->type == 3)
       {
-        if(dx > 0)
+        if(plr.velocity.x > 0)
         {
           plr.myCollider->position.x = temp->position.x - 1 - plr.myCollider->size.x;
         }
@@ -165,10 +180,13 @@ U0 MovePlayer()
     {
       if(temp->type == 2 || temp->type == 3)
       {
-        plr.myCollider->position.y -= dy;
+        plr.myCollider->position.y -= dy;
         if(plr.velocity.y > 0)
         {
+          plr.myCollider->position.y = temp->position.y - 1 - temp->size.y;
   	  plr.grounded = TRUE;
+        }else{
+          plr.myCollider->position.y = temp->position.y + 1 + temp->size.y;
         }
         plr.velocity.y = 0;
       }
