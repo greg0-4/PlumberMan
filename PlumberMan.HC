@@ -1,4 +1,4 @@
- Cd(__DIR__);
+Cd(__DIR__);;
 #include "Collisions.HC";
 #define MAP_WIDTH 27
 #define MAP_HEIGHT 20
@@ -15,12 +15,12 @@ CDC *tex_pipeLeft = GRRead("Sprites/PipeRight.GR.Z");
 
 I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,1},
-  {1,2,2,2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2,2,2,2,1},
+  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {1,1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,1,1},
+  {1,1,2,2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2,2,2,1,1},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -29,12 +29,18 @@ I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0},
   {2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,1},
+  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {1,1,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,1,1},
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
 };
+
+U16 RandU16Range(U16 min, U16 max)
+{
+  U16 number = min + RandU16() % (max - min + 1);
+  return number;
+}
 
 U0 InitMapColliders()
 {
@@ -96,6 +102,18 @@ class Player
   Collider *myCollider;
 };
 
+class Turtle : CQue
+{
+  I8 state;
+  Bool direction;
+  Bool grounded;
+  Vector2 velocity;
+  Collider *myCollider;
+};
+
+Turtle turtle_que;
+
+
 // Global Vars
 
 Keys keys;
@@ -103,11 +121,29 @@ Keys keys;
 Player plr;
 
 Collider *topLeftPassage;
-Collider *bottomLeftPassage;
 Collider *topRightPassage;
-Collider *bottomRightPassage;
 
 
+
+Turtle NewTurtle(F64 x, F64 y, Bool dir)
+{
+  Turtle *new = CAlloc(sizeof(Turtle));
+  new->direction = dir;
+  new->velocity.x = 0;
+  new->velocity.y = 0;
+  new->state = 0;
+  new->myCollider = NewCollider(x, y, 24, 12, 9);
+  QueIns(new, turtle_que.last);
+  return new;  
+}
+
+
+U0 DeleteTurtle(Turtle *a)
+{
+  DeleteCollider(a->myCollider);
+  QueRem(a);
+  Free(a);
+}
 
 
 U0 Init()
@@ -120,17 +156,15 @@ U0 Init()
   keys.actionB = FALSE;
   keys.startB = FALSE;
   QueInit(&collider_que);
+  QueInit(&turtle_que);
 
+  Turtle *testTurtle = NewTurtle(50, 48, 1);
   plr.myCollider = NewCollider(48, 48, 12, 24, 1);
-  topLeftPassage = NewCollider(0, 168, 24, 72, 7);
-  topRightPassage =NewCollider(624, 168, 24, 72, 8);
-  bottomLeftPassage = NewCollider(0, 264, 24, 72, 9);
-  bottomRightPassage = NewCollider(624, 264, 24, 72, 10); 
+  topLeftPassage = NewCollider(0, 0, 24, 480, 7);
+  topRightPassage =NewCollider(624, 0, 24, 480, 8);
   InitMapColliders;    
 
 }
-
-Bool g_Running = TRUE;
 
 U0 PassagesCollision(Collider *a)
 {
@@ -149,19 +183,166 @@ U0 PassagesCollision(Collider *a)
 	a->position.x = topLeftPassage->position.x + 1 + topLeftPassage->size.x;
       }
 
-      if(temp == bottomLeftPassage)
-      {
-	a->position.x = bottomRightPassage->position.x - 1 - bottomRightPassage->size.x;
-      }
-
-      if(temp == bottomRightPassage)
-      {
-	a->position.x = bottomLeftPassage->position.x + 1 + bottomLeftPassage->size.x;
-      }
     }
     temp = next;
   } 
 }
+
+U0 TurtleLogic()
+{
+  Turtle *turtle = turtle_que.next;
+  Collider *col = collider_que.next;
+
+  I64 pass;
+  for(pass=0;pass<3;pass++)
+  {
+  Turtle *turtle_a = turtle_que.next;
+  while(turtle_a != &turtle_que)
+  {
+    Turtle *turtle_b = turtle_a->next;
+    while(turtle_b != &turtle_que)
+    {
+      if(isColliding(turtle_a->myCollider, turtle_b->myCollider))
+      {
+        if(turtle_a->state == 2 || turtle_b->state == 2)
+        {
+	  break;
+	}
+	if(turtle_a->myCollider->position.x < turtle_b->myCollider->position.x)
+        {
+	  turtle_a->myCollider->position.x = turtle_b->myCollider->position.x - turtle_a->myCollider->size.x - 1;
+	}else{
+  	  turtle_b->myCollider->position.x = turtle_a->myCollider->position.x - turtle_b->myCollider->size.x - 1;
+	}
+        turtle_a->direction = !turtle_a->direction;
+        turtle_b->direction = !turtle_b->direction;
+      }
+      turtle_b = turtle_b->next;
+    }
+    turtle_a = turtle_a->next;
+  }
+  }  
+
+  while(turtle != &turtle_que)
+  {
+    col = collider_que.next;
+    Turtle *t_next = turtle->next;
+
+    // Direction moving
+    if(turtle->direction)
+    {
+      turtle->velocity.x = 2;
+    }else{
+      turtle->velocity.x = -2;
+    }
+
+
+    // Stunned
+    if(turtle->state == 2)
+    {
+      turtle->velocity.x = 0; 
+    }
+
+    turtle->myCollider->position.x += turtle->velocity.x;
+    PassagesCollision(turtle->myCollider);
+
+    // X Axis Collision
+    while(col != &collider_que)
+    {
+      Collider *c_next = col->next;
+
+
+      if(col != turtle->myCollider && isColliding(turtle->myCollider, col))
+      {
+
+	if(col->type == 2 || col->type == 3)
+        {
+           if(turtle->velocity.x > 0)
+           {
+	     turtle->myCollider->position.x = col->position.x - 1 - turtle->myCollider->size.x;
+	     turtle->direction = !turtle->direction;
+           }else{
+	     turtle->myCollider->position.x = col->position.x + 1 + col->size.x;
+	     turtle->direction = !turtle->direction;
+           }
+        }
+        if(col->type == 6)
+        {
+	  DeleteTurtle(turtle);
+	  break;
+        }
+      }
+
+      col = c_next;
+    }
+
+    turtle->velocity.y += GRAVITY;
+    turtle->myCollider->position.y += turtle->velocity.y;
+
+    if(turtle->velocity.y > 10)
+    {
+      turtle->velocity.y = 10;
+    }
+    // Y Axis Collision
+
+    col = collider_que.next;
+    while(col != &collider_que)
+    {
+      c_next = col->next;
+
+      if(col != turtle->myCollider && isColliding(turtle->myCollider, col))
+      {
+	if(col->type == 2 || col->type == 3)
+	{
+	  turtle->myCollider->position.y -= turtle->velocity.y;
+          if(turtle->velocity.y > 0)
+          {
+	    turtle->myCollider->position.y = col->position.y + 11 - col->size.y;
+	    turtle->grounded = TRUE;
+          }else{
+            turtle->myCollider->position.y = col->position.y - 11 + col->size.y;
+          }
+          turtle->velocity.y = 0;
+	}
+      }
+      col = c_next;
+    }
+
+    if(turtle->velocity.y != 0)
+    {
+      turtle->grounded = FALSE;
+    }
+
+    turtle = t_next;
+  }
+}
+
+I64 g_turtleSpawnTimer = 60;
+
+U0 GameLoop()
+{
+  if(g_turtleSpawnTimer <= 0)
+  {
+    g_turtleSpawnTimer = 0;
+    I64 pipe = RandU16 % 2;
+    "%d\n",pipe;
+    if(pipe == 1)
+    {
+      NewTurtle(72, 96, TRUE);
+    }else{
+      NewTurtle(567, 96, FALSE);
+    }
+    g_turtleSpawnTimer = 60;
+  }else{
+    g_turtleSpawnTimer--;
+  }
+}
+
+
+
+Bool g_Running = TRUE;
+
+
 
 U0 MovePlayer()
 {
@@ -197,7 +378,7 @@ U0 MovePlayer()
 
   plr.myCollider->position.x += plr.velocity.x;
 
-  PassagesCollision(plr.myCollider);
+  PassagesCollision(plr.myCollider);
 
   Collider *temp = collider_que.next;
   while(temp != &collider_que)
@@ -244,6 +425,25 @@ U0 MovePlayer()
           plr.myCollider->position.y = temp->position.y - 1 - temp->size.y;
   	  plr.grounded = TRUE;
         }else{
+          if(temp->type == 3)
+	  {
+            Turtle *temp_turtle = turtle_que.next;
+            while(temp_turtle != &turtle_que)
+            {
+	      Turtle *turtle_next = temp_turtle->next;
+              Bool turtleAboveBlock = 
+                temp_turtle->myCollider->position.y + temp_turtle->myCollider->size.y >= temp->position.y - 2 &&
+                temp_turtle->myCollider->position.y + temp_turtle->myCollider->size.y <= temp->position.y + 4 &&
+                temp_turtle->myCollider->position.x + temp_turtle->myCollider->size.x > temp->position.x &&
+                temp_turtle->myCollider->position.x < temp->position.x + temp->size.x;
+		if(turtleAboveBlock)
+		{
+		  temp_turtle->state = 2;
+		}
+
+	      temp_turtle = turtle_next;
+            }
+          }
           plr.myCollider->position.y = temp->position.y + 1 + temp->size.y;
         }
         plr.velocity.y = 0;
@@ -268,11 +468,13 @@ U0 MovePlayer()
 U0 DrawIt(CTask *task, CDC *dc)
 {
   DCFill(dc, BLACK);
-  MovePlayer;
   DrawColliders(dc);
   DrawMap(dc);
+  TurtleLogic;
+  MovePlayer;
+  GameLoop;
   dc->color = WHITE;
-  GrPrint(dc, 0, 0, "Velocity: %f Sprinting: %d",plr.velocity.x, plr.sprinting);
+  GrPrint(dc, 0, 0, "Velocity: %f Sprinting: %d",plr.myCollider->position.x, plr.sprinting);
 }
 
 
