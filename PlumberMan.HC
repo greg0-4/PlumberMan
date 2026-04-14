@@ -15,6 +15,8 @@ CDC *tex_pipeLeft = GRRead("Sprites/PipeRight.GR.Z");
 
 CDC *tex_turtleWalk1 = GRRead("Sprites/Turtle_Left1.GR.Z");
 CDC *tex_turtleWalk2 = GRRead("Sprites/Turtle_Left2.GR.Z");
+CDC *tex_turtleWalk3 = GRRead("Sprites/Turtle_Right1.GR.Z");
+CDC *tex_turtleWalk4 = GRRead("Sprites/Turtle_Right2.GR.Z");
 
 I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
@@ -109,8 +111,11 @@ class Turtle : CQue
 {
   I8 state;
   I8 stunTime;
+  I8 animTime;
+  I8 animFrame;
   Bool direction;
   Bool grounded;
+  CDC *mySprite;
   Vector2 velocity;
   Collider *myCollider;
 };
@@ -137,7 +142,15 @@ Turtle NewTurtle(F64 x, F64 y, Bool dir)
   new->velocity.x = 0;
   new->velocity.y = 0;
   new->state = 1;
+  new->animFrame = 1;
+  new->animTime = 15;
   new->myCollider = NewCollider(x, y, 24, 12, 9);
+  if(!dir)
+  {
+    new->mySprite = tex_turtleWalk1;
+  }else{
+    new->mySprite = tex_turtleWalk3;
+  }
   QueIns(new, turtle_que.last);
   return new;  
 }
@@ -150,6 +163,25 @@ U0 DeleteTurtle(Turtle *a)
   Free(a);
 }
 
+U0 AnimateTurtle(Turtle *a)
+{
+  I64 frameLimit = 2;
+  if(a->animFrame > 2)
+  {
+    a->animFrame = 1;
+  }
+
+  if(a->animTime > 0)
+  {
+    a->animTime--; 
+  }
+
+  if(a->animTime <= 0)
+  {
+    a->animFrame++;
+    a->animTime = 15;
+  }
+}
 
 U0 Init()
 {
@@ -331,15 +363,27 @@ U0 DrawTurtles(CDC *dc)
   Turtle *temp = turtle_que.next;
   while(temp != &turtle_que)
   {
+
+   
     Turtle *next = temp->next;
-    if(!tex_turtleWalk1->r)
+    AnimateTurtle(temp);
+    if(temp->animFrame == 1 && !temp->direction)
     {
-      DCMat4x4Set(tex_turtleWalk1, Mat4x4IdentNew);
+      temp->mySprite = tex_turtleWalk1;
+    }else if(temp->animFrame == 2 && !temp->direction)
+    {
+      temp->mySprite = tex_turtleWalk2;
+    }else if(temp->animFrame == 1 && temp->direction)
+    {
+      temp->mySprite = tex_turtleWalk3;
+    }else if(temp->animFrame == 2 && temp->direction)
+    {
+      temp->mySprite = tex_turtleWalk4;
     }
-    GrBlot3(dc,
+    GrBlot3(dc,
     temp->myCollider->position.x,
     temp->myCollider->position.y - 12, 1,
-    tex_turtleWalk1);
+    temp->mySprite);
     temp = next;
   }
 }
@@ -369,7 +413,16 @@ U0 GameLoop()
 
 Bool g_Running = TRUE;
 
-
+U0 DrawPlayer(CDC *dc)
+{
+  dc->color = RED;
+  GrRect(dc, 
+  plr.myCollider->position.x,
+  plr.myCollider->position.y,
+  plr.myCollider->size.x + 1,
+  plr.myCollider->size.y + 1);
+  dc->color = BLACK;
+}
 
 U0 MovePlayer()
 {
@@ -518,10 +571,11 @@ U0 MovePlayer()
 U0 DrawIt(CTask *task, CDC *dc)
 {
   DCFill(dc, BLACK);
-  DrawColliders(dc);
+  // DrawColliders(dc);
   DrawMap(dc);
   TurtleLogic;
   DrawTurtles(dc);
+  DrawPlayer(dc);
   MovePlayer;
   GameLoop;
   dc->color = WHITE;
