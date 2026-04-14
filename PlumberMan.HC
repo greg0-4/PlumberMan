@@ -13,6 +13,9 @@ CDC *tex_pow = GRRead("Sprites/PowBlock.GR.Z");
 CDC *tex_pipeRight = GRRead("Sprites/PipeLeft.GR.Z");
 CDC *tex_pipeLeft = GRRead("Sprites/PipeRight.GR.Z");
 
+CDC *tex_turtleWalk1 = GRRead("Sprites/Turtle_Left1.GR.Z");
+CDC *tex_turtleWalk2 = GRRead("Sprites/Turtle_Left2.GR.Z");
+
 I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -105,6 +108,7 @@ class Player
 class Turtle : CQue
 {
   I8 state;
+  I8 stunTime;
   Bool direction;
   Bool grounded;
   Vector2 velocity;
@@ -128,10 +132,11 @@ Collider *topRightPassage;
 Turtle NewTurtle(F64 x, F64 y, Bool dir)
 {
   Turtle *new = CAlloc(sizeof(Turtle));
+  new->stunTime = 4 * 30;
   new->direction = dir;
   new->velocity.x = 0;
   new->velocity.y = 0;
-  new->state = 0;
+  new->state = 1;
   new->myCollider = NewCollider(x, y, 24, 12, 9);
   QueIns(new, turtle_que.last);
   return new;  
@@ -158,7 +163,7 @@ U0 Init()
   QueInit(&collider_que);
   QueInit(&turtle_que);
 
-  Turtle *testTurtle = NewTurtle(50, 48, 1);
+  // Turtle *testTurtle = NewTurtle(50, 48, 1);
   plr.myCollider = NewCollider(48, 48, 12, 24, 1);
   topLeftPassage = NewCollider(0, 0, 24, 480, 7);
   topRightPassage =NewCollider(624, 0, 24, 480, 8);
@@ -238,10 +243,14 @@ U0 TurtleLogic()
 
 
     // Stunned
-    if(turtle->state == 2)
+    if(turtle->state == 2 && turtle->stunTime > 0)
     {
       turtle->velocity.x = 0; 
+      turtle->stunTime--;
+    }else{
+      turtle->state = 1;
     }
+
 
     turtle->myCollider->position.x += turtle->velocity.x;
     PassagesCollision(turtle->myCollider);
@@ -317,6 +326,24 @@ U0 TurtleLogic()
   }
 }
 
+U0 DrawTurtles(CDC *dc)
+{
+  Turtle *temp = turtle_que.next;
+  while(temp != &turtle_que)
+  {
+    Turtle *next = temp->next;
+    if(!tex_turtleWalk1->r)
+    {
+      DCMat4x4Set(tex_turtleWalk1, Mat4x4IdentNew);
+    }
+    GrBlot3(dc,
+    temp->myCollider->position.x,
+    temp->myCollider->position.y - 12, 1,
+    tex_turtleWalk1);
+    temp = next;
+  }
+}
+
 I64 g_turtleSpawnTimer = 60;
 
 U0 GameLoop()
@@ -330,7 +357,7 @@ U0 GameLoop()
     {
       NewTurtle(72, 96, TRUE);
     }else{
-      NewTurtle(567, 96, FALSE);
+      NewTurtle(567, 96, FALSE);
     }
     g_turtleSpawnTimer = 60;
   }else{
@@ -397,6 +424,25 @@ U0 MovePlayer()
           plr.myCollider->position.x = temp->position.x + 1 + temp->size.x;
         }
       }
+ 
+      if(temp->type == 9)
+      {
+	Turtle *temp_turtle = turtle_que.next;
+        while(temp_turtle != &turtle_que)
+        {
+	  Turtle *turtle_next = temp_turtle->next;
+
+	  if(temp_turtle->myCollider == temp)
+          {
+            if(temp_turtle->state == 2)
+            {
+	      DeleteTurtle(temp_turtle);
+            }
+          }
+
+	  temp_turtle = turtle_next;
+        }
+      }
     }
     temp = next;
   }
@@ -427,10 +473,10 @@ U0 MovePlayer()
         }else{
           if(temp->type == 3)
 	  {
-            Turtle *temp_turtle = turtle_que.next;
+            temp_turtle = turtle_que.next;
             while(temp_turtle != &turtle_que)
             {
-	      Turtle *turtle_next = temp_turtle->next;
+	      turtle_next = temp_turtle->next;
               Bool turtleAboveBlock = 
                 temp_turtle->myCollider->position.y + temp_turtle->myCollider->size.y >= temp->position.y - 2 &&
                 temp_turtle->myCollider->position.y + temp_turtle->myCollider->size.y <= temp->position.y + 4 &&
@@ -438,7 +484,11 @@ U0 MovePlayer()
                 temp_turtle->myCollider->position.x < temp->position.x + temp->size.x;
 		if(turtleAboveBlock)
 		{
-		  temp_turtle->state = 2;
+		  if(temp_turtle->state != 2)
+		  {
+		    temp_turtle->stunTime = 4 * 30;
+		    temp_turtle->state = 2;
+		  }
 		}
 
 	      temp_turtle = turtle_next;
@@ -471,6 +521,7 @@ U0 DrawIt(CTask *task, CDC *dc)
   DrawColliders(dc);
   DrawMap(dc);
   TurtleLogic;
+  DrawTurtles(dc);
   MovePlayer;
   GameLoop;
   dc->color = WHITE;
