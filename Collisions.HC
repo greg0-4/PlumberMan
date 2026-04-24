@@ -7,7 +7,9 @@ class Collider : CQue
 {
   Vector2 position;
   Vector2 size;
+  Vector2 Soffset;
   Bool colliding;
+  Bool isFalling;
   I64 type;
 };
 
@@ -19,6 +21,7 @@ Collider NewCollider(F64 x1, F64 y1, F64 x2, F64 y2, I64 type)
   new->position.x = x1;
   new->position.y = y1;
   new->colliding = FALSE;
+  new->isFalling = FALSE;
   new->size.x = x2;
   new->size.y = y2;
   new->type = type;
@@ -90,12 +93,12 @@ U0 DrawColliders(CDC *dc)
     }
     Collider *next = temp->next;
     GrRect3(dc,
-    temp->position.x,
-    temp->position.y,
+    temp->position.x + temp->Soffset.x,
+    temp->position.y + temp->Soffset.y,
     1,
     temp->size.x,
     temp->size.y);
     temp = next;
   }
-  dc->color = BLACK;
+  dc->color = BLACK;
 }

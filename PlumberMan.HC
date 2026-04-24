@@ -47,6 +47,11 @@ U16 RandU16Range(U16 min, U16 max)
   return number;
 }
 
+F64 Lerp(F64 a, F64 b, F64 t)
+{
+  return a + t * (b - a);
+}
+
 U0 InitMapColliders()
 {
   I64 x,y;
@@ -80,7 +85,6 @@ U0 DrawMap(CDC *dc)
       switch(tile)
       {
 	case 1: GrBlot(dc, x * 24, y * 24, tex_brick); break;
-	case 2: GrBlot(dc, x * 24, y * 24, tex_tile); break;
 	case 3: GrBlot(dc, x * 24, y * 24, tex_pow); break;
         case 4: GrBlot(dc, x * 24, y * 24, tex_pipeLeft); break;
         case 5: GrBlot(dc, x * 24, y * 24, tex_pipeRight); break;
@@ -90,6 +94,7 @@ U0 DrawMap(CDC *dc)
     }
   }
 }
+
 
 
 
@@ -224,6 +229,59 @@ U0 PassagesCollision(Collider *a)
     temp = next;
   } 
 }
+
+U0 DrawHitTiles(CDC *dc)
+{
+  Collider *temp = collider_que.next;
+  while(temp != &collider_que)
+  {
+    Collider *next = temp->next;
+    if(temp->type == 3)
+    {
+      GrBlot(dc,
+      temp->position.x + temp->Soffset.x,
+      temp->position.y + temp->Soffset.y,
+      tex_tile);
+    }
+    temp = next;
+  }
+}
+
+U0 PushHitTile(Collider *a)
+{
+  
+  if(!a->isFalling)
+  {
+    a->Soffset.y = Lerp(a->Soffset.y, -5.0, 0.3);
+    if(a->Soffset.y <= -4.0)
+    {
+      a->isFalling = TRUE;
+    }
+  }
+  else
+  {
+    a->Soffset.y = Lerp(a->Soffset.y, 0.0, 0.3);
+    if(a->Soffset.y > -0.1)
+    {
+      a->Soffset.y = 0;
+      a->isFalling = FALSE;
+    }
+  }
+}
+
+U0 UpdateTileAnimations()
+{
+  Collider *temp = collider_que.next;
+  while(temp != &collider_que)
+  {
+    if (temp->Soffset.y != 0) 
+    {
+      PushHitTile(temp);
+    }
+    temp = temp->next;
+  }
+}
+
 
 U0 TurtleLogic()
 {
@@ -526,6 +584,7 @@ U0 MovePlayer()
         }else{
           if(temp->type == 3)
 	  {
+            PushHitTile(temp);
             temp_turtle = turtle_que.next;
             while(temp_turtle != &turtle_que)
             {
@@ -571,8 +630,10 @@ U0 MovePlayer()
 U0 DrawIt(CTask *task, CDC *dc)
 {
   DCFill(dc, BLACK);
-  // DrawColliders(dc);
+  // DrawColliders(dc);
+  UpdateTileAnimations;
   DrawMap(dc);
+  DrawHitTiles(dc);
   TurtleLogic;
   DrawTurtles(dc);
   DrawPlayer(dc);
