@@ -18,7 +18,11 @@ CDC *tex_turtleWalk2 = GRRead("Sprites/Turtle_Left2.GR.Z");
 CDC *tex_turtleWalk3 = GRRead("Sprites/Turtle_Right1.GR.Z");
 CDC *tex_turtleWalk4 = GRRead("Sprites/Turtle_Right2.GR.Z");
 
-I64 map[MAP_HEIGHT][MAP_WIDTH] = {
+CDC *tex_turtleShell1 = GRRead("Sprites/Turtle_Shell1.GR.Z");
+CDC *tex_turtleShell2 = GRRead("Sprites/Turtle_Shell2.GR.Z");
+
+
+I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -425,6 +429,7 @@ U0 DrawTurtles(CDC *dc)
    
     Turtle *next = temp->next;
     AnimateTurtle(temp);
+
     if(temp->animFrame == 1 && !temp->direction)
     {
       temp->mySprite = tex_turtleWalk1;
@@ -437,6 +442,16 @@ U0 DrawTurtles(CDC *dc)
     }else if(temp->animFrame == 2 && temp->direction)
     {
       temp->mySprite = tex_turtleWalk4;
+    }
+
+    if(temp->state == 2)
+    {
+      temp->mySprite = tex_turtleShell1;
+    }
+
+    if(temp->state == 2 && temp->stunTime <= 60)
+    {
+      temp->mySprite = tex_turtleShell2;
     }
     GrBlot3(dc,
     temp->myCollider->position.x,
@@ -619,10 +634,16 @@ U0 MovePlayer()
     plr.grounded = FALSE;
   }
 
+  // Jumping
   if(keys.up && plr.grounded)
   {
     plr.velocity.y = -16;
     plr.grounded = FALSE;
+  }
+
+  if(!keys.up && plr.velocity.y < 0)
+  {
+    plr.velocity.y *= 0.5;
   }
   
 }
@@ -671,6 +692,7 @@ U0 PlumberMan()
 
 	      switch(input2.u8[0])$IV,0$
 	      {
+		case SC_SHIFT: keys.actionA = FALSE; break;
 		case SC_CURSOR_UP: keys.up = FALSE; break;
 		case SC_CURSOR_DOWN: keys.down = FALSE; break;
 		case SC_CURSOR_LEFT: keys.left = FALSE; break;
@@ -684,11 +706,11 @@ U0 PlumberMan()
 	case MSG_KEY_DOWN:
 	  switch(input1)
           {
-	    case CH_SPACE: keys.actionA = TRUE; break;
 	    case 0:
 
 	      switch(input2.u8[0])
 	      {
+		case SC_SHIFT: keys.actionA = TRUE; break;
 		case SC_CURSOR_UP: keys.up = TRUE; break;
 		case SC_CURSOR_DOWN: keys.down = TRUE; break;
 		case SC_CURSOR_LEFT: keys.left = TRUE; break;
