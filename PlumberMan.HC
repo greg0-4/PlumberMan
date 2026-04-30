@@ -22,7 +22,7 @@ CDC *tex_turtleShell1 = GRRead("Sprites/Turtle_Shell1.GR.Z");
 CDC *tex_turtleShell2 = GRRead("Sprites/Turtle_Shell2.GR.Z");
 
 
-I64 map[MAP_HEIGHT][MAP_WIDTH] = {
+I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -129,7 +129,21 @@ class Turtle : CQue
   Collider *myCollider;
 };
 
+class TurtlePop : CQue
+{
+  Vector2 position;
+  Vector2 velocity;
+};
+
+
+class Game 
+{
+  U64 spawnRate;
+};
+
 Turtle turtle_que;
+
+TurtlePop turtlePop_que;
 
 
 // Global Vars
@@ -192,6 +206,53 @@ U0 AnimateTurtle(Turtle *a)
   }
 }
 
+U0 NewTurtlePop(Vector2 *position)
+{
+  TurtlePop *new = CAlloc(sizeof(TurtlePop));
+  new->position.x = position->x;
+  new->position.y = position->y;
+
+  U16 randDir = RandU16 % 2;
+
+  if(randDir == 1)
+  {
+    new->velocity.x = 6;
+  }
+  else
+  {
+    new->velocity.x = -6;
+  }
+
+  new->velocity.y = -4;
+  QueIns(new, turtlePop_que.last);
+
+}
+
+U0 DeleteTurtlePop(TurtlePop *a)
+{
+  QueRem(a);
+  Free(a);
+}
+
+U0 UpdateTurtlePops()
+{
+  TurtlePop *temp = turtlePop_que.next;
+  while(temp != &turtlePop_que)
+  {
+    TurtlePop *next = temp->next;
+    temp->velocity.y += GRAVITY;
+    temp->position.y += temp->velocity.y;
+    temp->position.x += temp->velocity.x;
+    if(temp->position.y >= 500)
+    {
+      DeleteTurtlePop(temp);
+    }
+    temp = next;
+    
+  }
+}
+
+
 U0 Init()
 {
   keys.up = FALSE;
@@ -203,6 +264,7 @@ U0 Init()
   keys.startB = FALSE;
   QueInit(&collider_que);
   QueInit(&turtle_que);
+  QueInit(&turtlePop_que);
 
   // Turtle *testTurtle = NewTurtle(50, 48, 1);
   plr.myCollider = NewCollider(48, 48, 12, 24, 1);
@@ -474,7 +536,7 @@ U0 GameLoop()
     {
       NewTurtle(72, 96, TRUE);
     }else{
-      NewTurtle(567, 96, FALSE);
+      NewTurtle(567, 96, FALSE);
     }
     g_turtleSpawnTimer = 60;
   }else{
@@ -482,7 +544,21 @@ U0 GameLoop()
   }
 }
 
-
+U0 DrawTurtlePop(CDC *dc)
+{
+  TurtlePop *temp = turtlePop_que.next;
+  while(temp != &turtlePop_que)
+  {
+    TurtlePop *next = temp->next;
+    GrBlot3(dc,
+      temp->position.x,
+      temp->position.y,
+      5,
+      tex_turtleShell1
+    );
+    temp = next;
+  }
+}
 
 Bool g_Running = TRUE;
 
@@ -562,6 +638,7 @@ U0 MovePlayer()
           {
             if(temp_turtle->state == 2)
             {
+	      NewTurtlePop(&temp_turtle->myCollider->position);
 	      DeleteTurtle(temp_turtle);
             }
           }
@@ -658,10 +735,12 @@ U0 DrawIt(CTask *task, CDC *dc)
   TurtleLogic;
   DrawTurtles(dc);
   DrawPlayer(dc);
+  UpdateTurtlePops;
+  DrawTurtlePop(dc);
   MovePlayer;
   GameLoop;
   dc->color = WHITE;
-  GrPrint(dc, 0, 0, "Velocity: %f Sprinting: %d",plr.myCollider->position.x, plr.sprinting);
+  GrPrint(dc, 0, 0, "Velocity: %d Sprinting: %d",QueCnt(&turtlePop_que), plr.sprinting);
 }
 
 
