@@ -135,6 +135,13 @@ class TurtlePop : CQue
   Vector2 velocity;
 };
 
+class ScorePart : CQue
+{
+  Vector2 position;
+  U64 amount;
+  I64 dieTime;
+};
+
 
 class Game 
 {
@@ -142,6 +149,8 @@ class Game
 };
 
 Turtle turtle_que;
+
+ScorePart score_que;
 
 TurtlePop turtlePop_que;
 
@@ -185,6 +194,46 @@ U0 DeleteTurtle(Turtle *a)
   QueRem(a);
   Free(a);
 }
+
+
+U0 NewScoreParticle(Vector2 *position, U64 amount)
+{
+  ScorePart *new = CAlloc(sizeof(ScorePart));
+  new->amount = amount;
+  new->position.x = position->x;
+  new->position.y = position->y;
+  QueIns(new, score_que.last);
+  
+}
+
+U0 DeleteScoreParticle(ScorePart *a)
+{
+  QueRem(a);
+  Free(a);
+}
+
+U0 ScoreParticleLogic(CDC *dc)
+{
+  ScorePart *temp = score_que.next;
+  dc->color = WHITE;
+  while(temp != &score_que)
+  {
+    ScorePart *next = temp->next;
+    GrPrint(dc,
+    temp->position.x,
+    temp->position.y,
+    "%d",temp->amount);
+    temp->position.y -= 0.75;
+    temp->dieTime++;
+    if(temp->dieTime > 50)
+    {
+      DeleteScoreParticle(temp);
+    }
+    temp = next;
+  }
+  dc->color = BLACK;
+}
+
 
 U0 AnimateTurtle(Turtle *a)
 {
@@ -265,6 +314,7 @@ U0 Init()
   QueInit(&collider_que);
   QueInit(&turtle_que);
   QueInit(&turtlePop_que);
+  QueInit(&score_que);
 
   // Turtle *testTurtle = NewTurtle(50, 48, 1);
   plr.myCollider = NewCollider(48, 48, 12, 24, 1);
@@ -536,7 +586,7 @@ U0 GameLoop()
     {
       NewTurtle(72, 96, TRUE);
     }else{
-      NewTurtle(567, 96, FALSE);
+      NewTurtle(567, 96, FALSE);
     }
     g_turtleSpawnTimer = 60;
   }else{
@@ -639,6 +689,7 @@ U0 MovePlayer()
             if(temp_turtle->state == 2)
             {
 	      NewTurtlePop(&temp_turtle->myCollider->position);
+	      NewScoreParticle(&temp_turtle->myCollider->position, 100);
 	      DeleteTurtle(temp_turtle);
             }
           }
@@ -737,6 +788,7 @@ U0 DrawIt(CTask *task, CDC *dc)
   DrawPlayer(dc);
   UpdateTurtlePops;
   DrawTurtlePop(dc);
+  ScoreParticleLogic(dc);
   MovePlayer;
   GameLoop;
   dc->color = WHITE;
