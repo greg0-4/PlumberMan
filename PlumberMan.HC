@@ -56,6 +56,8 @@ F64 Lerp(F64 a, F64 b, F64 t)
   return a + t * (b - a);
 }
 
+Collider *powCollider = CAlloc(sizeof(Collider));
+
 U0 InitMapColliders()
 {
   I64 x,y;
@@ -68,7 +70,7 @@ U0 InitMapColliders()
       {
 	case 1: NewCollider(x * 24, y * 24, 24, 24, 2); break;
 	case 2: NewCollider(x * 24, y * 24, 24, 24, 3); break;
-	case 3: NewCollider(x * 24, y * 24, 24, 24, 4); break;
+	case 3: powCollider = NewCollider(x * 24, y * 24, 24, 24, 4); break;
 	case 4: NewCollider(x * 24, y * 24, 24, 24, 5); break;
 	case 5: NewCollider(x * 24, y * 24, 24, 24, 5); break;
 	case 6: NewCollider(x * 24, y * 24, 24, 24, 6); break;
@@ -89,7 +91,7 @@ U0 DrawMap(CDC *dc)
       switch(tile)
       {
 	case 1: GrBlot(dc, x * 24, y * 24, tex_brick); break;
-	case 3: GrBlot(dc, x * 24, y * 24, tex_pow); break;
+	// case 3: GrBlot(dc, x * 24, y * 24, tex_pow); break;
         case 4: GrBlot(dc, x * 24, y * 24, tex_pipeLeft); break;
         case 5: GrBlot(dc, x * 24, y * 24, tex_pipeRight); break;
 	case 6: GrBlot(dc, x * 24, y * 24, tex_pipeLeft); break;
@@ -144,6 +146,10 @@ class ScorePart : CQue
 };
 
 
+Bool g_powBlockHit = FALSE;
+I8 g_powBlockAmount = 0;
+
+
 class Game 
 {
   U64 spawnRate;
@@ -154,7 +160,7 @@ class Game
 Game game;
 game.intermission = TRUE;
 game.round = 0;
-game.spawnRate = (4 - game.round) * 30;
+game.spawnRate = (4 * 30) - (game.round * 4);
 
 
 Turtle turtle_que;
@@ -260,7 +266,7 @@ U0 AnimateTurtle(Turtle *a)
   if(a->animTime <= 0)
   {
     a->animFrame++;
-    a->animTime = 15;
+    a->animTime = 7;
   }
 }
 
@@ -360,12 +366,20 @@ U0 DrawHitTiles(CDC *dc)
   while(temp != &collider_que)
   {
     Collider *next = temp->next;
-    if(temp->type == 3)
+    switch(temp->type)
     {
+      case 3:
       GrBlot(dc,
       temp->position.x + temp->Soffset.x,
       temp->position.y + temp->Soffset.y,
       tex_tile);
+      break;
+      case 4:
+      GrBlot(dc,
+      temp->position.x + temp->Soffset.x,
+      temp->position.y + temp->Soffset.y,
+      tex_pow);
+      break;
     }
     temp = next;
   }
@@ -523,7 +537,7 @@ U0 TurtleLogic()
 	    turtle->myCollider->position.y = col->position.y + 11 - col->size.y;
 	    turtle->grounded = TRUE;
           }else{
-            turtle->myCollider->position.y = col->position.y - 11 + col->size.y;
+            turtle->myCollider->position.y = col->position.y - 11 + col->size.y;
           }
           turtle->velocity.y = 0;
 	}
@@ -599,6 +613,7 @@ I64 g_intermissionTimer = 8 * 30;
 
 U0 GameLoop()
 {
+  game.spawnRate = (4 * 30) - (game.round * 4);
   if(game.intermission)
   {
      if(g_intermissionTimer <= 0)
@@ -651,6 +666,54 @@ U0 DrawTurtlePop(CDC *dc)
     temp = next;
   }
 }
+
+
+
+U0 StunAllTurtles()
+{
+  Turtle *temp = turtle_que.next;
+  while(temp != &turtle_que)
+  {
+    Turtle *next = temp->next;
+    temp->stunTime = 4 * 30;
+    temp->state = 2;
+    temp = next;
+  }
+}
+
+U0 PowBlock()
+{
+  if(!g_powBlockHit && g_powBlockAmount < 3)
+  {
+    StunAllTurtles;
+    g_powBlockHit = TRUE;
+    g_powBlockAmount++;
+  }
+}
+
+I64 g_powBlockCounter = 5 * 30;
+
+U0 PowBlockLoop()
+{
+  if(g_powBlockHit)
+  {
+    powCollider->position.x = 800;
+    g_powBlockCounter--;
+
+    if(g_powBlockCounter <= 0)
+    {
+      g_powBlockHit = FALSE;
+      g_powBlockCounter = 5 * 30;
+      powCollider->position.x = 312;
+    }   
+  }
+
+  if(g_powBlockAmount >= 3)
+  {
+    powCollider->position.x = 800;
+  }
+}
+
 
 Bool g_Running = TRUE;
 
@@ -736,7 +799,7 @@ U0 MovePlayer()
     Collider *next = temp->next;
     if(temp != plr.myCollider && isColliding(plr.myCollider, temp))
     {
-      if(temp->type == 2 || temp->type == 3 || temp->type == 5 || temp->type == 6)
+      if(temp->type == 2 || temp->type == 3 || temp->type == 4 || temp->type == 5 || temp->type == 6)
       {
         if(plr.velocity.x > 0)
         {
@@ -761,7 +824,7 @@ U0 MovePlayer()
             {
 	      NewTurtlePop(&temp_turtle->myCollider->position);
 	      plr.score += 100;
-	      plr.highScore += 100;
+	      plr.highScore += 100;
 	      NewScoreParticle(&temp_turtle->myCollider->position, 100);
 	      DeleteTurtle(temp_turtle);
             }
@@ -790,7 +853,7 @@ U0 MovePlayer()
     next = temp->next;
     if(temp != plr.myCollider && isColliding(plr.myCollider, temp))
     {
-      if(temp->type == 2 || temp->type == 3 || temp->type == 5 || temp->type == 6)
+      if(temp->type == 2 || temp->type == 3 || temp->type == 4 || temp->type == 5 || temp->type == 6)
       {
         plr.myCollider->position.y -= dy;
         if(plr.velocity.y > 0)
@@ -821,6 +884,10 @@ U0 MovePlayer()
 
 	      temp_turtle = turtle_next;
             }
+          }
+          if(temp->type == 4)
+          {
+            PowBlock;
           }
           plr.myCollider->position.y = temp->position.y + 1 + temp->size.y;
         }
@@ -867,6 +934,7 @@ U0 DrawIt(CTask *task, CDC *dc)
   DrawTurtlePop(dc);
   DrawIntermission(dc);
   ScoreParticleLogic(dc);
+  PowBlockLoop;
   MovePlayer;
   GameLoop;
   dc->color = WHITE;
