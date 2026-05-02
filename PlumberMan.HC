@@ -4,7 +4,7 @@ Cd(__DIR__);;
 #define MAP_HEIGHT 20
 #define ACCEL	 2.0
 #define FRICTION 1.3
-#define GRAVITY 1
+#define GRAVITY 1.5
 
 
 CDC *tex_brick = GRRead("Sprites/Brick.GR.Z"); 
@@ -110,6 +110,7 @@ class Keys
 class Player
 {
   U64 score;
+  U64 highScore;
   Bool grounded;
   Bool sprinting;
   Vector2 velocity;
@@ -146,7 +147,15 @@ class ScorePart : CQue
 class Game 
 {
   U64 spawnRate;
+  U64 round;
+  Bool intermission;
 };
+
+Game game;
+game.intermission = TRUE;
+game.round = 0;
+game.spawnRate = (4 - game.round) * 30;
+
 
 Turtle turtle_que;
 
@@ -214,7 +223,7 @@ U0 DeleteScoreParticle(ScorePart *a)
 
 U0 ScoreParticleLogic(CDC *dc)
 {
-  ScorePart *temp = score_que.next;
+  ScorePart *temp = score_que.next;
   dc->color = WHITE;
   while(temp != &score_que)
   {
@@ -316,8 +325,7 @@ U0 Init()
   QueInit(&turtlePop_que);
   QueInit(&score_que);
 
-  // Turtle *testTurtle = NewTurtle(50, 48, 1);
-  plr.myCollider = NewCollider(48, 48, 12, 24, 1);
+  plr.myCollider = NewCollider(317, 396, 12, 24, 1);
   topLeftPassage = NewCollider(0, 0, 24, 480, 7);
   topRightPassage =NewCollider(624, 0, 24, 480, 8);
   InitMapColliders;    
@@ -573,24 +581,58 @@ U0 DrawTurtles(CDC *dc)
   }
 }
 
-I64 g_turtleSpawnTimer = 60;
+I64 g_turtleSpawnTimer = game.spawnRate;
+
+U0 KillAllTurtles()
+{
+  Turtle *temp = turtle_que.next;
+  while(temp != &turtle_que)
+  {
+    Turtle *next = temp->next;
+    NewTurtlePop(&temp->myCollider->position);
+    DeleteTurtle(temp);
+    temp = next;
+  }
+}
+
+I64 g_intermissionTimer = 8 * 30;
 
 U0 GameLoop()
 {
-  if(g_turtleSpawnTimer <= 0)
+  if(game.intermission)
   {
-    g_turtleSpawnTimer = 0;
-    I64 pipe = RandU16 % 2;
-    "%d\n",pipe;
-    if(pipe == 1)
+     if(g_intermissionTimer <= 0)
+     {
+       game.intermission = FALSE;
+       g_intermissionTimer = 8 * 30;
+     }
+     g_intermissionTimer--;
+  }
+  if(plr.score >= 1000)
+  {
+    game.intermission = TRUE;
+    KillAllTurtles;
+    game.round++;
+    plr.score = 0;
+    
+  }
+  if(!game.intermission)
+  {
+    if(g_turtleSpawnTimer <= 0)
     {
-      NewTurtle(72, 96, TRUE);
+      g_turtleSpawnTimer = 0;
+      I64 pipe = RandU16 % 2;
+      "%d\n",pipe;
+      if(pipe == 1)
+      {
+        NewTurtle(72, 96, TRUE);
+      }else{
+        NewTurtle(567, 96, FALSE);
+      }
+      g_turtleSpawnTimer = game.spawnRate;
     }else{
-      NewTurtle(567, 96, FALSE);
+      g_turtleSpawnTimer--;
     }
-    g_turtleSpawnTimer = 60;
-  }else{
-    g_turtleSpawnTimer--;
   }
 }
 
@@ -623,6 +665,35 @@ U0 DrawPlayer(CDC *dc)
   dc->color = BLACK;
 }
 
+I64 g_intermBlinkTimer = 1 * 15;
+Bool g_intermBlink = FALSE;
+U0 DrawIntermission(CDC *dc)
+{
+  dc->color = LTRED;
+  if(game.intermission)
+  {
+    g_intermBlinkTimer--;
+    if(g_intermBlinkTimer <= 0)
+    {
+      g_intermBlink = !g_intermBlink;
+      g_intermBlinkTimer = 1 * 15;
+    }
+
+    if(!g_intermBlink)
+    {
+      GrPrint(dc, 275, 200, "Intermission");
+      if(g_intermissionTimer <= 3 * 30)
+      {
+        dc->color = YELLOW;
+        GrPrint(dc, 285, 210, "Get ready!");
+      }
+    }
+
+   
+  }
+  dc->color = WHITE;
+}
+
 U0 MovePlayer()
 {
   if(keys.actionA)
@@ -634,9 +705,9 @@ U0 MovePlayer()
   F64 speedLimit;
   if(plr.sprinting)
   {
-    speedLimit = 8; 
+    speedLimit = 12; 
   }else{
-    speedLimit = 5;
+    speedLimit = 8;
   }
 
   if(keys.right) plr.velocity.x += ACCEL;
@@ -689,6 +760,8 @@ U0 MovePlayer()
             if(temp_turtle->state == 2)
             {
 	      NewTurtlePop(&temp_turtle->myCollider->position);
+	      plr.score += 100;
+	      plr.highScore += 100;
 	      NewScoreParticle(&temp_turtle->myCollider->position, 100);
 	      DeleteTurtle(temp_turtle);
             }
@@ -706,9 +779,9 @@ U0 MovePlayer()
   F64 dy = plr.velocity.y;
   plr.myCollider->position.y += dy;
 
-  if(plr.velocity.y > 10)
+  if(plr.velocity.y > 15)
   {
-    plr.velocity.y = 10;
+    plr.velocity.y = 15;
   }
 
   temp = collider_que.next;
@@ -765,7 +838,7 @@ U0 MovePlayer()
   // Jumping
   if(keys.up && plr.grounded)
   {
-    plr.velocity.y = -16;
+    plr.velocity.y = -19;
     plr.grounded = FALSE;
   }
 
@@ -780,6 +853,10 @@ U0 DrawIt(CTask *task, CDC *dc)
 {
   DCFill(dc, BLACK);
   // DrawColliders(dc);
+  dc->color = WHITE;
+  GrPrint(dc, 290, 60, "Score: %d", plr.score);
+  GrPrint(dc, 282, 70, "HScore: %d", plr.highScore);
+  dc->color = BLACK;
   UpdateTileAnimations;
   DrawMap(dc);
   DrawHitTiles(dc);
@@ -788,11 +865,11 @@ U0 DrawIt(CTask *task, CDC *dc)
   DrawPlayer(dc);
   UpdateTurtlePops;
   DrawTurtlePop(dc);
+  DrawIntermission(dc);
   ScoreParticleLogic(dc);
   MovePlayer;
   GameLoop;
   dc->color = WHITE;
-  GrPrint(dc, 0, 0, "Velocity: %d Sprinting: %d",QueCnt(&turtlePop_que), plr.sprinting);
 }
 
 
