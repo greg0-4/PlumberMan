@@ -31,6 +31,9 @@ CDC *tex_fireball2 = GRRead("Sprites/Fireball2.GR.Z");
 CDC *tex_fireball3 = GRRead("Sprites/Fireball3.GR.Z");
 CDC *tex_fireball4 = GRRead("Sprites/Fireball4.GR.Z");
 
+CDC *tex_coin1 = GRRead("Sprites/Coin1.GR.Z");
+CDC *tex_coin2 = GRRead("Sprites/Coin2.GR.Z");
+
 
 I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
@@ -172,18 +175,29 @@ Bool g_powBlockHit = FALSE;
 I8 g_powBlockAmount = 0;
 
 
+class Coin : CQue
+{
+  Collider *myCollider;
+  CDC *sprite;
+  I8 currentFrame;
+  I64 frameTimer;
+};
+
 class Game 
 {
   U64 spawnRate;
   U64 fireballTimer;
   U64 round;
   Bool intermission;
+  Bool isBonusRound;
+  U64 bonusRoundTimer;
 };
 
 Game game;
 game.intermission = TRUE;
+game.isBonusRound = FALSE;
 game.round = 0;
-game.spawnRate = (4 * 30) - (game.round * 4);
+// game.spawnRate = (4 * 30) - (game.round * 4);
 game.fireballTimer = RandU16Range(5 * 30, 10 * 30);
 
 Turtle turtle_que;
@@ -194,6 +208,8 @@ TurtlePop turtlePop_que;
 
 FireBall fireball_que;
 
+Coin coin_que;
+
 // Global Vars
 
 Keys keys;
@@ -203,6 +219,57 @@ Player plr;
 Collider *topLeftPassage;
 Collider *topRightPassage;
 
+U0 NewCoin(F64 x, F64 y)
+{
+  Coin *new = CAlloc(sizeof(Coin));
+  new->myCollider = NewCollider(x, y, 24, 24, 11);
+  new->currentFrame = 1;
+  new->frameTimer = 7;
+  new->sprite = tex_coin1;
+  QueIns(new, coin_que.last);
+}
+
+U0 DeleteCoin(Coin *a)
+{
+  DeleteCollider(a->myCollider);
+  QueRem(a);
+  Free(a);
+}
+
+U0 AnimateCoin(Coin *a)
+{
+  if(a->currentFrame > 2)
+  {
+    a->currentFrame = 1;
+  }
+  a->frameTimer--;
+  if(a->frameTimer <= 0)
+  {
+    a->currentFrame++;
+    a->frameTimer = 7;
+  }
+
+  switch(a->currentFrame)
+  {
+    case 1: a->sprite = tex_coin1; break;
+    case 2: a->sprite = tex_coin2; break;
+  }
+}
+
+U0 DrawCoins(CDC *dc)
+{
+  Coin *temp = coin_que.next;
+  while(temp != &coin_que)
+  {
+    Coin *next = temp->next;
+    AnimateCoin(temp);
+    GrBlot(dc,
+    temp->myCollider->position.x,
+    temp->myCollider->position.y,
+    temp->sprite);
+    temp = next;
+  }
+}
 
 U0 NewFireBall(Vector2 *position)
 {
@@ -220,6 +287,17 @@ U0 DeleteFireBall(FireBall *a)
   DeleteCollider(a->myCollider);
   QueRem(a);
   Free(a);
+}
+
+U0 DeleteAllFireBalls()
+{
+  FireBall *temp = fireball_que.next;
+  while(temp != &fireball_que)
+  {
+    FireBall *next = temp->next;
+    DeleteFireBall(temp);
+    temp = next;
+  }
 }
 
 U0 AnimateFireBall(FireBall *a)
@@ -410,6 +488,7 @@ U0 Init()
   QueInit(&turtle_que);
   QueInit(&turtlePop_que);
   QueInit(&score_que);
+  QueInit(&coin_que);
   QueInit(&fireball_que);
   plr.lives = 3;
   plr.invincible = FALSE;
@@ -751,13 +830,73 @@ U0 SpawnFireBall()
   NewFireBall(&myPos);
 }
 
+I64 g_bonusRoundTimer = 20 * 30;
+
+U0 StartBonusRound()
+{
+  KillAllTurtles;
+  DeleteAllFireBalls;
+  plr.myCollider->position.x = 317;
+  plr.myCollider->position.y = 396;
+  game.isBonusRound = TRUE;
+
+  // Spawning coins 
+
+  //1st floor
+  NewCoin(96, 120);
+  NewCoin(120, 120);
+  NewCoin(144, 120);
+  NewCoin(456, 120);
+  NewCoin(480, 120);
+  NewCoin(504, 120);
+  
+  //2nd floor
+  NewCoin(288, 216);
+  NewCoin(336, 216);
+
+  //3rd floor
+  NewCoin(168, 312);
+  NewCoin(456, 312);  
+}
+
+U0 EndBonusRound()
+{
+  plr.myCollider->position.x = 317;
+  plr.myCollider->position.y = 396;
+  game.round++;
+  game.isBonusRound = FALSE;
+  plr.score = 0;
+  game.intermission = TRUE;
+}
 
 
 U0 GameLoop()
 {
   game.spawnRate = (4 * 30) - (game.round * 4);
 
-  if(!game.intermission)
+  if(plr.lives > 3)
+  {
+    plr.lives = 3;
+  }
+
+  if(game.isBonusRound)
+  {
+    g_bonusRoundTimer--;
+    if(plr.score >= 1000)
+    {
+      g_powBlockAmount = 1;
+      g_bonusRoundTimer = 20 * 30;
+      plr.lives++;
+      EndBonusRound; 
+    }
+    if(g_bonusRoundTimer <= 0)
+    {
+      g_bonusRoundTimer = 20 * 30;
+      EndBonusRound;
+    }
+  }
+
+  if(!game.intermission && !game.isBonusRound)
   {
     game.fireballTimer--; 
     if(game.fireballTimer <= 0)
@@ -767,16 +906,25 @@ U0 GameLoop()
     }
   }
 
+  if(game.round == 1 && !game.isBonusRound && !game.intermission)
+  {
+    StartBonusRound;
+  }else if(game.round > 1 && (game.round - 1) % 5 == 0 && !game.intermission && !game.isBonusRound)
+  {
+    StartBonusRound;   
+  }
+
   if(game.intermission)
   {
-     if(g_intermissionTimer <= 0)
-     {
-       game.intermission = FALSE;
-       g_intermissionTimer = 8 * 30;
-     }
-     g_intermissionTimer--;
+    DeleteAllFireBalls;
+    if(g_intermissionTimer <= 0)
+    {
+      game.intermission = FALSE;
+      g_intermissionTimer = 8 * 30;
+    }
+    g_intermissionTimer--;
   }
-  if(plr.score >= 1000)
+  if(plr.score >= 1000 && !game.intermission && !game.isBonusRound)
   {
     game.intermission = TRUE;
     KillAllTurtles;
@@ -784,7 +932,7 @@ U0 GameLoop()
     plr.score = 0;
     
   }
-  if(!game.intermission)
+  if(!game.intermission && !game.isBonusRound)
   {
     if(g_turtleSpawnTimer <= 0)
     {
@@ -887,7 +1035,7 @@ U0 DrawPlayer(CDC *dc)
     if(g_plrFlashingTimer <= 0)
     {
       g_plrFlashingTimer = 1 * 5;
-      g_plrFlashing = !g_plrFlashing;
+      g_plrFlashing = !g_plrFlashing;$WW,1$
     }
 
     if(g_plrFlashing)
@@ -1024,6 +1172,23 @@ U0 MovePlayer()
 	  temp_turtle = turtle_next;
         }
       }
+
+      if(temp->type == 11)
+      {
+        Coin *c_temp = coin_que.next;
+        while(c_temp != &coin_que)
+        {
+          Coin *c_next = c_temp->next;
+          if(c_temp->myCollider == temp)
+	  {
+	    plr.score += 100;
+	    plr.highScore += 100;
+	    NewScoreParticle(&temp->position, 100); 
+            DeleteCoin(c_temp);
+	  }
+          c_temp = c_next;
+        }
+      }
     }
     temp = next;
   }
@@ -1112,7 +1277,11 @@ U0 ResetGame(CDC *dc)
   plr.lives = 3;
   plr.score = 0;
   plr.highScore = 0;
+  plr.invincible = FALSE;
+  g_plrInvincibleTimer = 3 * 30; 
+  g_plrFlashingTimer = 5;
   KillAllTurtles;  
+  g_bonusRoundTimer = 20 * 30; 
   game.intermission = TRUE;
   game.round = 0;
   game.spawnRate = (4 * 30) - (game.round * 4);
@@ -1130,31 +1299,32 @@ U0 DrawIt(CTask *task, CDC *dc)
     GrPrint(dc, 240, 220, "Press SPACE to start");
     if(keys.actionB)
     {
-      pressedStart = TRUE;
+      pressedStart = TRUE;
     }
   }
   if(pressedStart)
   {
-  // DrawColliders(dc);
-  dc->color = WHITE;
-  GrPrint(dc, 290, 60, "Score: %d", plr.score);
-  GrPrint(dc, 282, 70, "HScore: %d", plr.highScore);
-  dc->color = BLACK;
-  UpdateTileAnimations;
-  DrawMap(dc);
-  DrawHitTiles(dc);
-  TurtleLogic;
-  DrawTurtles(dc);
-  DrawPlayer(dc);
-  DrawFireBalls(dc);
-  UpdateTurtlePops;
-  DrawTurtlePop(dc);
-  DrawIntermission(dc);
-  ScoreParticleLogic(dc);
-  FireBallLogic;
-  DrawHearts(dc);
-  PowBlockLoop;
-  MovePlayer;
+    // DrawColliders(dc);
+    dc->color = WHITE;
+    GrPrint(dc, 290, 60, "Score: %d", plr.score);
+    GrPrint(dc, 282, 70, "HScore: %d", plr.highScore);
+    dc->color = BLACK;
+    UpdateTileAnimations;
+    DrawMap(dc);
+    DrawHitTiles(dc);
+    TurtleLogic;
+    DrawTurtles(dc);
+    DrawCoins(dc);
+    DrawPlayer(dc);
+    DrawFireBalls(dc);
+    UpdateTurtlePops;
+    DrawTurtlePop(dc);
+    DrawIntermission(dc);
+    ScoreParticleLogic(dc);
+    FireBallLogic;
+    DrawHearts(dc);
+    PowBlockLoop;
+    MovePlayer;
   if(plr.lives <= 0)
   {
     ResetGame(dc);
