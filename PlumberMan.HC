@@ -7,6 +7,8 @@ Cd(__DIR__);;
 #define GRAVITY 1.5
 
 
+Bool pressedStart = FALSE;
+
 CDC *tex_brick = GRRead("Sprites/Brick.GR.Z"); 
 CDC *tex_tile = GRRead("Sprites/Tile.GR.Z");
 CDC *tex_pow = GRRead("Sprites/PowBlock.GR.Z");
@@ -409,7 +411,7 @@ U0 Init()
   QueInit(&turtlePop_que);
   QueInit(&score_que);
   QueInit(&fireball_que);
-  plr.lives = 3;
+  plr.lives = 3;
   plr.invincible = FALSE;
   plr.myCollider = NewCollider(317, 396, 12, 24, 1);
   topLeftPassage = NewCollider(0, 0, 24, 480, 7);
@@ -1122,6 +1124,17 @@ U0 ResetGame(CDC *dc)
 U0 DrawIt(CTask *task, CDC *dc)
 {
   DCFill(dc, BLACK);
+  if(!pressedStart)
+  {
+    dc->color = WHITE;
+    GrPrint(dc, 240, 220, "Press SPACE to start");
+    if(keys.actionB)
+    {
+      pressedStart = TRUE;
+    }
+  }
+  if(pressedStart)
+  {
   // DrawColliders(dc);
   dc->color = WHITE;
   GrPrint(dc, 290, 60, "Score: %d", plr.score);
@@ -1148,6 +1161,7 @@ U0 DrawIt(CTask *task, CDC *dc)
   }
   GameLoop;
   dc->color = WHITE;
+  }
 }
 
 
@@ -1173,7 +1187,7 @@ U0 PlumberMan()
 	  switch(input1)
           {
 	    case CH_SHIFT_ESC: g_Running = FALSE; break;
-	    case CH_SPACE: keys.actionA = FALSE; break;
+	    case CH_SPACE: keys.actionB = FALSE; break;
 	    case 0:
 
 	      switch(input2.u8[0])$IV,0$
@@ -1192,7 +1206,8 @@ U0 PlumberMan()
 	case MSG_KEY_DOWN:
 	  switch(input1)
           {
-	    case 0:
+	    case CH_SPACE: keys.actionB = TRUE; break;
+	      case 0:
 
 	      switch(input2.u8[0])
 	      {
