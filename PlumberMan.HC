@@ -21,6 +21,14 @@ CDC *tex_turtleWalk4 = GRRead("Sprites/Turtle_Right2.GR.Z");
 CDC *tex_turtleShell1 = GRRead("Sprites/Turtle_Shell1.GR.Z");
 CDC *tex_turtleShell2 = GRRead("Sprites/Turtle_Shell2.GR.Z");
 
+CDC *tex_heart1 = GRRead("Sprites/Heart1.GR.Z");
+CDC *tex_heart2 = GRRead("Sprites/Heart2.GR.Z");
+
+CDC *tex_fireball1 = GRRead("Sprites/Fireball1.GR.Z");
+CDC *tex_fireball2 = GRRead("Sprites/Fireball2.GR.Z");
+CDC *tex_fireball3 = GRRead("Sprites/Fireball3.GR.Z");
+CDC *tex_fireball4 = GRRead("Sprites/Fireball4.GR.Z");
+
 
 I64 map[MAP_HEIGHT][MAP_WIDTH] = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
@@ -113,7 +121,9 @@ class Player
 {
   U64 score;
   U64 highScore;
+  U8 lives;
   Bool grounded;
+  Bool invincible;
   Bool sprinting;
   Vector2 velocity;
   Collider *myCollider;
@@ -125,6 +135,7 @@ class Turtle : CQue
   I8 stunTime;
   I8 animTime;
   I8 animFrame;
+  F64 velocityMultiplier;
   Bool direction;
   Bool grounded;
   CDC *mySprite;
@@ -145,6 +156,15 @@ class ScorePart : CQue
   I64 dieTime;
 };
 
+class FireBall : CQue
+{
+  Collider *myCollider;
+  CDC *currentSprite;
+  I8 currentFrame;
+  I64 frameTimer;
+  I8 frameTime;
+};
+
 
 Bool g_powBlockHit = FALSE;
 I8 g_powBlockAmount = 0;
@@ -153,6 +173,7 @@ I8 g_powBlockAmount = 0;
 class Game 
 {
   U64 spawnRate;
+  U64 fireballTimer;
   U64 round;
   Bool intermission;
 };
@@ -161,7 +182,7 @@ Game game;
 game.intermission = TRUE;
 game.round = 0;
 game.spawnRate = (4 * 30) - (game.round * 4);
-
+game.fireballTimer = RandU16Range(5 * 30, 10 * 30);
 
 Turtle turtle_que;
 
@@ -169,6 +190,7 @@ ScorePart score_que;
 
 TurtlePop turtlePop_que;
 
+FireBall fireball_que;
 
 // Global Vars
 
@@ -180,6 +202,62 @@ Collider *topLeftPassage;
 Collider *topRightPassage;
 
 
+U0 NewFireBall(Vector2 *position)
+{
+  FireBall *new = CAlloc(sizeof(FireBall));
+  new->myCollider = NewCollider(position->x, position->y, 12, 12, 10);
+  new->currentSprite = tex_fireball1;
+  new->currentFrame = 1;
+  new->frameTimer = 5;
+  new->frameTime = 5;
+  QueIns(new, fireball_que.last); 
+}
+
+U0 DeleteFireBall(FireBall *a)
+{
+  DeleteCollider(a->myCollider);
+  QueRem(a);
+  Free(a);
+}
+
+U0 AnimateFireBall(FireBall *a)
+{
+
+  if(a->currentFrame > 4)
+  {
+    a->currentFrame = 1;
+  }
+  a->frameTimer--;
+  if(a->frameTimer <= 0)
+  {
+    a->frameTimer = a->frameTime;
+    a->currentFrame++;
+  }
+  switch(a->currentFrame)
+  {
+    case 1: a->currentSprite = tex_fireball1; break;
+    case 2: a->currentSprite = tex_fireball2; break;
+    case 3: a->currentSprite = tex_fireball3; break;
+    case 4: a->currentSprite = tex_fireball4; break;
+  }
+}
+
+
+
+U0 DrawFireBalls(CDC *dc)
+{
+  FireBall *temp = fireball_que.next;
+  while(temp != &fireball_que)
+  {
+    FireBall *next = temp->next;
+    AnimateFireBall(temp);
+    GrBlot(dc,
+    temp->myCollider->position.x,
+    temp->myCollider->position.y,
+    temp->currentSprite);
+    temp = next;
+  }
+}
 
 Turtle NewTurtle(F64 x, F64 y, Bool dir)
 {
@@ -330,7 +408,9 @@ U0 Init()
   QueInit(&turtle_que);
   QueInit(&turtlePop_que);
   QueInit(&score_que);
-
+  QueInit(&fireball_que);
+  plr.lives = 3;
+  plr.invincible = FALSE;
   plr.myCollider = NewCollider(317, 396, 12, 24, 1);
   topLeftPassage = NewCollider(0, 0, 24, 480, 7);
   topRightPassage =NewCollider(624, 0, 24, 480, 8);
@@ -420,6 +500,15 @@ U0 UpdateTileAnimations()
   }
 }
 
+U0 DrawHearts(CDC *dc)
+{
+  I64 i;
+  for(i=0;i<plr.lives;i++)
+  {
+    GrBlot(dc, 300 + (i * 14), 80, tex_heart1);
+  }
+}
+
 
 U0 TurtleLogic()
 {
@@ -464,9 +553,9 @@ U0 TurtleLogic()
     // Direction moving
     if(turtle->direction)
     {
-      turtle->velocity.x = 2;
+      turtle->velocity.x = 2 + turtle->velocityMultiplier;
     }else{
-      turtle->velocity.x = -2;
+      turtle->velocity.x = -2 + turtle->velocityMultiplier;
     }
 
 
@@ -505,8 +594,16 @@ U0 TurtleLogic()
         }
         if(col->type == 6)
         {
-	  DeleteTurtle(turtle);
+          turtle->myCollider->position.y = 96;
+	  I64 pipe = RandU16 % 2;
+	  if(pipe == 1)
+          {
+	    turtle->myCollider->position.x = 72;           
+          }else{
+	    turtle->myCollider->position.x = 567;
+          }
 	  break;
+          turtle->velocityMultiplier += 0.25;
         }
       }
 
@@ -537,7 +634,7 @@ U0 TurtleLogic()
 	    turtle->myCollider->position.y = col->position.y + 11 - col->size.y;
 	    turtle->grounded = TRUE;
           }else{
-            turtle->myCollider->position.y = col->position.y - 11 + col->size.y;
+            turtle->myCollider->position.y = col->position.y - 11 + col->size.y;
           }
           turtle->velocity.y = 0;
 	}
@@ -609,11 +706,65 @@ U0 KillAllTurtles()
   }
 }
 
+
+U0 KillPlayer()
+{
+  if(plr.invincible)
+  {
+    return;
+  }
+  plr.lives--;
+  plr.invincible = TRUE;
+}
+
+
+U0 FireBallLogic()
+{
+  FireBall *temp = fireball_que.next;
+  while(temp!= &fireball_que)
+  {
+    FireBall *next = temp->next;
+    temp->myCollider->position.x += 4;
+    if(isColliding(temp->myCollider, plr.myCollider))
+    {
+      KillPlayer;
+    }
+    if(temp->myCollider->position.x > 640 || temp->myCollider->position.x < -20)
+    {
+      DeleteFireBall(temp);
+    }
+    temp = next;
+  }
+}
+
 I64 g_intermissionTimer = 8 * 30;
+
+U0 SpawnFireBall()
+{
+  U64 randX = RandU16Range(24, 616);
+  U64 randY = RandU16Range(24, 408);
+  Vector2 myPos;
+  myPos.x = randX;
+  myPos.y = randY;
+  NewFireBall(&myPos);
+}
+
+
 
 U0 GameLoop()
 {
   game.spawnRate = (4 * 30) - (game.round * 4);
+
+  if(!game.intermission)
+  {
+    game.fireballTimer--; 
+    if(game.fireballTimer <= 0)
+    {
+      SpawnFireBall;
+      game.fireballTimer = RandU16Range(5*30, 5 * 30);
+    }
+  }
+
   if(game.intermission)
   {
      if(g_intermissionTimer <= 0)
@@ -637,7 +788,6 @@ U0 GameLoop()
     {
       g_turtleSpawnTimer = 0;
       I64 pipe = RandU16 % 2;
-      "%d\n",pipe;
       if(pipe == 1)
       {
         NewTurtle(72, 96, TRUE);
@@ -717,14 +867,51 @@ U0 PowBlockLoop()
 
 Bool g_Running = TRUE;
 
+
+Bool g_plrFlashing = FALSE;
+I64 g_plrFlashingTimer = 1 * 5;
+
+I64 g_plrInvincibleTimer = 3 * 30;
+
 U0 DrawPlayer(CDC *dc)
 {
   dc->color = RED;
+
+  if(plr.invincible)
+  {
+
+
+    g_plrFlashingTimer--;
+    if(g_plrFlashingTimer <= 0)
+    {
+      g_plrFlashingTimer = 1 * 5;
+      g_plrFlashing = !g_plrFlashing;
+    }
+
+    if(g_plrFlashing)
+    {
+      GrRect(dc, 
+        plr.myCollider->position.x,
+        plr.myCollider->position.y,
+        plr.myCollider->size.x + 1,
+        plr.myCollider->size.y + 1);
+    }
+
+    g_plrInvincibleTimer--;
+    if(g_plrInvincibleTimer <= 0)
+    {
+       g_plrInvincibleTimer = 3 * 30;
+       plr.invincible = FALSE;
+    }
+  }
+  else
+  {
   GrRect(dc, 
-  plr.myCollider->position.x,
-  plr.myCollider->position.y,
-  plr.myCollider->size.x + 1,
-  plr.myCollider->size.y + 1);
+    plr.myCollider->position.x,
+    plr.myCollider->position.y,
+    plr.myCollider->size.x + 1,
+    plr.myCollider->size.y + 1);
+  }
   dc->color = BLACK;
 }
 
@@ -827,6 +1014,8 @@ U0 MovePlayer()
 	      plr.highScore += 100;
 	      NewScoreParticle(&temp_turtle->myCollider->position, 100);
 	      DeleteTurtle(temp_turtle);
+            }else{
+              KillPlayer;
             }
           }
 
@@ -916,6 +1105,20 @@ U0 MovePlayer()
   
 }
 
+U0 ResetGame(CDC *dc)
+{
+  plr.lives = 3;
+  plr.score = 0;
+  plr.highScore = 0;
+  KillAllTurtles;  
+  game.intermission = TRUE;
+  game.round = 0;
+  game.spawnRate = (4 * 30) - (game.round * 4);
+  plr.myCollider->position.x = 317;
+  plr.myCollider->position.y = 396;
+
+}
+
 U0 DrawIt(CTask *task, CDC *dc)
 {
   DCFill(dc, BLACK);
@@ -930,12 +1133,19 @@ U0 DrawIt(CTask *task, CDC *dc)
   TurtleLogic;
   DrawTurtles(dc);
   DrawPlayer(dc);
+  DrawFireBalls(dc);
   UpdateTurtlePops;
   DrawTurtlePop(dc);
   DrawIntermission(dc);
   ScoreParticleLogic(dc);
+  FireBallLogic;
+  DrawHearts(dc);
   PowBlockLoop;
   MovePlayer;
+  if(plr.lives <= 0)
+  {
+    ResetGame(dc);
+  }
   GameLoop;
   dc->color = WHITE;
 }
