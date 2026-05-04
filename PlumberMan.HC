@@ -122,6 +122,13 @@ class Keys
   Bool up,down,left,right,actionA,actionB,startB;
 };
 
+class Sounds
+{
+  Bool coinSound;
+  Bool powSound;
+  Bool turtleSound;
+};
+
 class Player
 {
   U64 score;
@@ -211,6 +218,8 @@ FireBall fireball_que;
 Coin coin_que;
 
 // Global Vars
+
+Sounds sound;
 
 Keys keys;
 
@@ -906,10 +915,10 @@ U0 GameLoop()
     }
   }
 
-  if(game.round == 1 && !game.isBonusRound && !game.intermission)
+  if(game.round == 2 && !game.isBonusRound && !game.intermission)
   {
     StartBonusRound;
-  }else if(game.round > 1 && (game.round - 1) % 5 == 0 && !game.intermission && !game.isBonusRound)
+  }else if(game.round > 2 && (game.round - 2) % 5 == 0 && !game.intermission && !game.isBonusRound)
   {
     StartBonusRound;   
   }
@@ -985,6 +994,7 @@ U0 PowBlock()
 {
   if(!g_powBlockHit && g_powBlockAmount < 3)
   {
+    sound.powSound = TRUE;
     StunAllTurtles;
     g_powBlockHit = TRUE;
     g_powBlockAmount++;
@@ -1163,6 +1173,7 @@ U0 MovePlayer()
 	      plr.score += 100;
 	      plr.highScore += 100;
 	      NewScoreParticle(&temp_turtle->myCollider->position, 100);
+              sound.turtleSound = TRUE;
 	      DeleteTurtle(temp_turtle);
             }else{
               KillPlayer;
@@ -1183,6 +1194,7 @@ U0 MovePlayer()
 	  {
 	    plr.score += 100;
 	    plr.highScore += 100;
+            sound.coinSound = TRUE;
 	    NewScoreParticle(&temp->position, 100); 
             DeleteCoin(c_temp);
 	  }
@@ -1308,6 +1320,12 @@ U0 DrawIt(CTask *task, CDC *dc)
     dc->color = WHITE;
     GrPrint(dc, 290, 60, "Score: %d", plr.score);
     GrPrint(dc, 282, 70, "HScore: %d", plr.highScore);
+    if(game.isBonusRound)
+    { 
+      dc->color = YELLOW;
+      GrPrint(dc, 276, 38, "Bonus Round");
+      GrPrint(dc, 273, 28, "Time Left: %d", g_bonusRoundTimer / 30);
+    }
     dc->color = BLACK;
     UpdateTileAnimations;
     DrawMap(dc);
@@ -1334,6 +1352,35 @@ U0 DrawIt(CTask *task, CDC *dc)
   }
 }
 
+U0 SongTask()
+{
+  while(TRUE)
+  {
+    if(sound.coinSound)
+    {
+      music.tempo = 6;
+      Play("5stCsE");
+      music.stacatto_factor = 0.341;
+      music.tempo=4;
+      sound.coinSound = FALSE;
+    }else if(sound.powSound)
+    {
+      music.tempo = 4.846;
+      Play("1etC1B");
+      music.stacatto_factor = 0.341;
+      music.tempo = 4;
+      sound.powSound = FALSE;
+    }else if(sound.turtleSound)
+    {
+      music.tempo = 4.846;
+      Play("4etB5C");
+      music.stacatto_factor = 0.341;
+      music.tempo = 4;
+      sound.turtleSound = FALSE;
+    }
+    Yield;
+  }
+}
 
 U0 PlumberMan()
 {
@@ -1347,6 +1394,7 @@ U0 PlumberMan()
   WinBorder;
 
   Fs->draw_it = &DrawIt;
+  Fs->song_task = Spawn(&SongTask, Fs);
  
   try{
     while(g_Running)
@@ -1398,6 +1446,8 @@ U0 PlumberMan()
     SettingsPop;
     PutExcept;
   }
+  Snd(0);
+  Kill(Fs->song_task);
   SettingsPop;
 }
 
