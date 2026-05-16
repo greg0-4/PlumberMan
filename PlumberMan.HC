@@ -1372,7 +1372,7 @@ U0 SongTask()
       sound.powSound = FALSE;
     }else if(sound.turtleSound)
     {
-      music.tempo = 4.846;
+      music.tempo = 8.846;
       Play("4etB5C");
       music.stacatto_factor = 0.341;
       music.tempo = 4;
